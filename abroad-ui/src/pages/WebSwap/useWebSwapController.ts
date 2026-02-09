@@ -932,12 +932,23 @@ export const useWebSwapController = (): WebSwapControllerProps => {
     setCurrencyMenuOpen()
     dispatch({ type: 'RESET' })
     dispatch({ targetCurrency: currency, type: 'SET_TARGET_CURRENCY' })
-    dispatch({ corridorKey: '', type: 'SET_CORRIDOR' })
-    setChainKey('')
+    // Preserve the current chain when switching currency.
+    // Find a corridor that matches both the new currency and the current chain.
+    const currencyCorridors = corridors.filter(c => c.targetCurrency === currency)
+    const sameChain = activeChainKey
+      ? currencyCorridors.find(c => chainKeyOf(c) === activeChainKey)
+      : null
+    if (sameChain) {
+      dispatch({ corridorKey: corridorKeyOf(sameChain), type: 'SET_CORRIDOR' })
+    }
+    else {
+      dispatch({ corridorKey: '', type: 'SET_CORRIDOR' })
+      setChainKey('')
+    }
     lastEditedRef.current = null
     directAbortRef.current?.abort()
     reverseAbortRef.current?.abort()
-  }, [])
+  }, [activeChainKey, corridors])
 
   const selectChain = useCallback((key: string) => {
     setChainMenuOpen()
