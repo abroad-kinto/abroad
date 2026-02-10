@@ -510,12 +510,22 @@ export const useWebSwapController = (): WebSwapControllerProps => {
   }, [selectedCorridor, wallet])
 
   useEffect(() => {
-    if (!wallet?.address || !wallet?.chainId || !selectedCorridor) return
-    if (wallet.chainId === selectedCorridor.chainId) return
-    // Instead of disconnecting, silently try to restore a saved session
-    // for the new chain. If no session exists, do nothing — the user
-    // can click "Connect Wallet" manually.
-    if (wallet.walletId === 'wallet-connect' && selectedCorridor.walletConnect) {
+    if (!selectedCorridor || !wallet) return
+
+    // Case 1: wallet connected on a different chain → silently restore for the new chain
+    if (wallet.address && wallet.chainId && wallet.chainId !== selectedCorridor.chainId) {
+      if (wallet.walletId === 'wallet-connect' && selectedCorridor.walletConnect) {
+        wallet.connect({
+          chainId: selectedCorridor.chainId,
+          silentRestore: true,
+          walletConnect: selectedCorridor.walletConnect,
+        }).catch(() => undefined)
+      }
+      return
+    }
+
+    // Case 2: wallet not connected + WalletConnect → try restore for the current corridor
+    if (!wallet.address && wallet.walletId === 'wallet-connect' && selectedCorridor.walletConnect) {
       wallet.connect({
         chainId: selectedCorridor.chainId,
         silentRestore: true,

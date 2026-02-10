@@ -1,7 +1,7 @@
 import { WalletConnectModal } from '@walletconnect/modal'
 import SignClient from '@walletconnect/sign-client'
 import { getSdkError } from '@walletconnect/utils'
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import type { IWallet, WalletConnectRequest } from '../../interfaces/IWallet'
 import type { IWalletAuthentication } from '../../interfaces/IWalletAuthentication'
@@ -9,6 +9,8 @@ import type { IWalletAuthentication } from '../../interfaces/IWalletAuthenticati
 import { WALLET_CONNECT_ID } from '../../shared/constants'
 
 const SESSION_STORE_PREFIX = 'wc:session:'
+const LAST_CHAIN_KEY = 'abroad:wc:lastChainId'
+const LAST_NAMESPACE_KEY = 'abroad:wc:lastNamespace'
 
 type WCMetadata = {
   description: string
@@ -70,6 +72,7 @@ export function useWalletConnectWallet({ walletAuth }: {
 
   const [address, setAddress] = useState<null | string>(null)
   const [chainId, setChainId] = useState<null | string>(null)
+  const restoringRef = useRef(false)
 
   const ensureModal = useCallback(() => {
     if (typeof window === 'undefined') {
@@ -128,6 +131,30 @@ export function useWalletConnectWallet({ walletAuth }: {
       return false
     }
   }, [])
+
+  // Auto-reconnect on mount if a previous WalletConnect session was persisted
+  useEffect(() => {
+    const lastChainId = localStorage.getItem(LAST_CHAIN_KEY)
+    const lastNamespace = localStorage.getItem(LAST_NAMESPACE_KEY)
+    if (!lastChainId || !lastNamespace || restoringRef.current) return
+
+    restoringRef.current = true
+    ensureClient()
+      .then(client => tryRestoreSession(client, lastChainId, lastNamespace))
+      .then((restored) => {
+        if (!restored) {
+          localStorage.removeItem(LAST_CHAIN_KEY)
+          localStorage.removeItem(LAST_NAMESPACE_KEY)
+        }
+      })
+      .catch(() => {
+        localStorage.removeItem(LAST_CHAIN_KEY)
+        localStorage.removeItem(LAST_NAMESPACE_KEY)
+      })
+      .finally(() => {
+        restoringRef.current = false
+      })
+  }, [ensureClient, tryRestoreSession])
 
   const request = useCallback(async <TResult>(req: WalletConnectRequest): Promise<TResult> => {
     const client = await ensureClient()
@@ -237,6 +264,12 @@ export function useWalletConnectWallet({ walletAuth }: {
     setAddress(resolvedAddress)
     setChainId(targetChainId)
 
+    // Persist for auto-restore on page refresh
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(LAST_CHAIN_KEY, targetChainId)
+      localStorage.setItem(LAST_NAMESPACE_KEY, namespace)
+    }
+
     await walletAuth.authenticate({
       address: resolvedAddress,
       chainId: targetChainId,
@@ -262,17 +295,17 @@ export function useWalletConnectWallet({ walletAuth }: {
         topic: topicRef.current,
       })
       topicRef.current = undefined
-      if (typeof window !== 'undefined' && chainId) {
-        localStorage.removeItem(buildStoreKey(chainId))
+      if (typeof window !== 'undefined') {
+        if (chainId) localStorage.removeItem(buildStoreKey(chainId))
+        localStorage.removeItem(LAST_CHAIN_KEY)
+        localStorage.removeItem(LAST_NAMESPACE_KEY)
       }
     }
     setAddress(null)
     setChainId(null)
-    walletAuth.setJwtToken(null)
   }, [
     chainId,
     ensureClient,
-    walletAuth,
   ])
 
   const signTransaction: IWallet['signTransaction'] = useCallback(async ({ message }) => {

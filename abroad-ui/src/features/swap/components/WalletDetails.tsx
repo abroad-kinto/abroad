@@ -6,11 +6,13 @@ import {
 import React from 'react'
 
 import { TransactionListItem } from '../../../api'
+import type { TokenBalance } from '../../../shared/hooks/useChainBalance'
 import TransactionDetail from '../shared/TransactionDetail'
 
 export interface WalletDetailsProps {
   address: null | string
   copiedAddress: boolean
+  explorerUrl: string | null
   formatDate: (dateString: string) => string
   getStatusStyle: (status: string) => string
   getStatusText: (status: string) => string
@@ -26,6 +28,7 @@ export interface WalletDetailsProps {
   onRefreshTransactions: () => void
   selectedTransaction: null | TransactionListItem
   setSelectedTransaction: (transaction: null | TransactionListItem) => void
+  tokenBalances: TokenBalance[]
   transactionError: null | string
   transactions: TransactionListItem[]
   usdcBalance: string
@@ -35,6 +38,7 @@ export interface WalletDetailsProps {
 const WalletDetails: React.FC<WalletDetailsProps> = ({
   address,
   copiedAddress,
+  explorerUrl,
   formatDate,
   getStatusStyle,
   getStatusText,
@@ -50,6 +54,7 @@ const WalletDetails: React.FC<WalletDetailsProps> = ({
   onRefreshTransactions,
   selectedTransaction,
   setSelectedTransaction,
+  tokenBalances,
   transactionError,
   transactions,
   usdcBalance,
@@ -132,13 +137,15 @@ const WalletDetails: React.FC<WalletDetailsProps> = ({
               >
                 <Copy className="w-4 h-4 text-white" />
               </button>
-              <button
-                className="p-1 hover:bg-white hover:bg-opacity-20 rounded transition-colors duration-200"
-                onClick={() => window.open(`https://stellar.expert/explorer/public/account/${address}`, '_blank')}
-                title={t('wallet_details.actions.view_explorer', 'Ver en explorador')}
-              >
-                <ExternalLink className="w-4 h-4 text-white" />
-              </button>
+              {explorerUrl && (
+                <button
+                  className="p-1 hover:bg-white hover:bg-opacity-20 rounded transition-colors duration-200"
+                  onClick={() => window.open(explorerUrl, '_blank')}
+                  title={t('wallet_details.actions.view_explorer', 'Ver en explorador')}
+                >
+                  <ExternalLink className="w-4 h-4 text-white" />
+                </button>
+              )}
             </div>
           </div>
           {copiedAddress && (
@@ -147,21 +154,27 @@ const WalletDetails: React.FC<WalletDetailsProps> = ({
 
           {/* Balance Section */}
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <img
-                alt="USDC"
-                className="w-5 h-5"
-                src="https://storage.googleapis.com/cdn-abroad/Icons/Tokens/USDC%20Token.svg"
-              />
+            <div className="flex-1">
               {isLoadingBalance
                 ? (
                     <div className="w-32 h-9 bg-white/20 rounded animate-pulse"></div>
                   )
                 : (
-                    <span className="text-white font-bold text-4xl">
-                      $
-                      {usdcBalance}
-                    </span>
+                    <>
+                      <span className="text-white font-bold text-4xl">
+                        $
+                        {usdcBalance}
+                      </span>
+                      {tokenBalances.length > 1 && (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {tokenBalances.map(tb => (
+                            <span className="text-white/80 text-xs bg-white/10 rounded-full px-2 py-0.5" key={tb.symbol}>
+                              {tb.symbol}: ${tb.balance}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </>
                   )}
             </div>
             {/* Refresh Balance Button */}

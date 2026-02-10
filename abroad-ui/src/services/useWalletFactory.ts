@@ -1,5 +1,5 @@
 // useWalletFactory.ts
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
 
 import type { IWallet } from '../interfaces/IWallet'
 import type { IWalletAuthentication } from '../interfaces/IWalletAuthentication'
@@ -37,5 +37,5 @@ export function useWalletFactory({ walletAuth }: {
     ],
   )
 
-  return { getWalletHandler }
+  return useMemo(() => ({ getWalletHandler }), [getWalletHandler])
 }
